@@ -4,6 +4,27 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import AsyncAdaptedQueuePool
 from app.core.config import settings
 from app.models.base import Base
+import os
+from pathlib import Path
+
+# Ensure SQLite directory exists
+if settings.DATABASE_URL.startswith('sqlite'):
+    db_path = Path(settings.DATABASE_URL.split('///')[1]).parent
+    db_path.mkdir(exist_ok=True)
+    
+    # SQLite-specific connect args
+    connect_args = {"check_same_thread": False}
+else:
+    # PostgreSQL or other database connect args
+    connect_args = {
+        "timeout": 10,  # Connection timeout in seconds
+        "statement_timeout": 10000,  # Statement timeout in milliseconds
+        "command_timeout": 10,  # Command timeout in seconds
+        "keepalives": 1,  # Enable TCP keepalive
+        "keepalives_idle": 30,  # Idle time before sending keepalive
+        "keepalives_interval": 10,  # Interval between keepalives
+        "keepalives_count": 5,  # Number of keepalive attempts
+    }
 
 # Create async engine with optimized pool settings
 engine = create_async_engine(
@@ -15,15 +36,7 @@ engine = create_async_engine(
     pool_recycle=1800,  # Recycle connections after 30 minutes
     pool_pre_ping=True,  # Enable connection health checks
     poolclass=AsyncAdaptedQueuePool,  # Use queue-based pooling for async
-    connect_args={
-        "timeout": 10,  # Connection timeout in seconds
-        "statement_timeout": 10000,  # Statement timeout in milliseconds
-        "command_timeout": 10,  # Command timeout in seconds
-        "keepalives": 1,  # Enable TCP keepalive
-        "keepalives_idle": 30,  # Idle time before sending keepalive
-        "keepalives_interval": 10,  # Interval between keepalives
-        "keepalives_count": 5,  # Number of keepalive attempts
-    }
+    connect_args=connect_args
 )
 
 # Create session factory
@@ -54,10 +67,11 @@ async def init_db():
     """Initialize database with required extensions and settings."""
     async with engine.begin() as conn:
         # Enable pg_trgm extension for text search if using PostgreSQL
-        try:
-            await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
-        except Exception:
-            pass  # Ignore if not PostgreSQL or extension already exists
+        if not settings.DATABASE_URL.startswith('sqlite'):
+            try:
+                await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+            except Exception:
+                pass  # Ignore if extension already exists or not supported
         
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)

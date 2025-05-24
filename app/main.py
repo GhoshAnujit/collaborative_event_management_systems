@@ -19,6 +19,7 @@ from app.core.middleware import (
     RequestValidationMiddleware,
     RateLimitMiddleware
 )
+from app.db.database import init_db, dispose_db
 
 # ─── Logging Configuration ───────────────────────────────────────────
 
@@ -36,11 +37,16 @@ def setup_logging():
     if settings.ENVIRONMENT.lower() == "development":
         handler = logging.StreamHandler(sys.stdout)
     else:
-        handler = RotatingFileHandler(
-            filename=settings.LOG_FILE_PATH if hasattr(settings, "LOG_FILE_PATH") else "app.log",
-            maxBytes=10_000_000,
-            backupCount=3
-        )
+        try:
+            handler = RotatingFileHandler(
+                filename=settings.LOG_FILE_PATH if hasattr(settings, "LOG_FILE_PATH") else "app.log",
+                maxBytes=10_000_000,
+                backupCount=3
+            )
+        except (PermissionError, FileNotFoundError):
+            # Fallback to stdout in case file logging isn't possible (e.g. in Railway)
+            handler = logging.StreamHandler(sys.stdout)
+            logging.warning("File logging not possible, falling back to stdout")
 
     handler.setFormatter(formatter)
     root_logger.addHandler(handler)
@@ -59,6 +65,15 @@ async def lifespan(app: FastAPI):
     # Startup
     print("Starting up...")
     logger.info("Starting up application...")
+    
+    # Initialize the database
+    try:
+        logger.info("Initializing database...")
+        await init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+    
     limiter.start_cleanup()
     cache.start_cleanup()
     
@@ -69,6 +84,13 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down application...")
     limiter.stop_cleanup()
     cache.stop_cleanup()
+    
+    # Dispose database connections
+    try:
+        await dispose_db()
+        logger.info("Database connections disposed")
+    except Exception as e:
+        logger.error(f"Error disposing database connections: {e}")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -246,3 +268,12 @@ app.openapi = custom_openapi
 async def root() -> WelcomeResponse:
     """Root endpoint returning a welcome message."""
     return WelcomeResponse(message="Welcome to NeoFi Event Manager API")
+
+# Health check endpoint for monitoring (used by Railway)
+@app.get("/health", status_code=status.HTTP_200_OK)
+async def health_check():
+    return {
+        "status": "healthy",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT
+    }

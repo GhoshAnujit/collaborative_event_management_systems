@@ -85,6 +85,63 @@ uvicorn app.main:app --reload
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+## Deploying to Railway
+
+This application is configured for easy deployment to Railway's platform.
+
+### Prerequisites
+
+- A [Railway](https://railway.app) account
+- This repository pushed to your GitHub account
+
+### Deployment Steps
+
+1. Log in to Railway and click "New Project"
+2. Select "Deploy from GitHub repo"
+3. Connect your GitHub account and select this repository
+4. Railway will automatically detect the Python project and build it
+5. Once deployed, you can access your API at the provided Railway domain
+
+### Environment Variables
+
+Railway will automatically set most environment variables, but you may need to configure the following in the Railway dashboard:
+
+- `SECRET_KEY`: A secure secret key for JWT generation
+- `ENVIRONMENT`: Set to "production" for deployment
+- `BACKEND_CORS_ORIGINS`: Configure allowed origins for CORS
+
+### Database
+
+This application uses SQLite by default, which is suitable for demo purposes. The database file is stored in the `sqlite_db` directory, which is created automatically during deployment.
+
+For a production deployment, you might want to:
+1. Continue using SQLite for simplicity (works well for demos)
+2. Configure a PostgreSQL database for more robust storage
+
+### Seed Data
+
+After deployment, you can run the seed script to populate the database with test data:
+
+```bash
+python seed_data.py
+```
+
+This will create:
+- Admin user: admin@example.com / admin123
+- Test user: test@example.com / test123
+- Demo user: demo@example.com / demo123
+- Sample events with appropriate permissions
+
+### API Documentation
+
+After deployment, your API documentation will be available at:
+- Swagger UI: `https://your-railway-app.railway.app/docs`
+- ReDoc: `https://your-railway-app.railway.app/redoc`
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
 ## API Documentation
 
 ### Authentication Endpoints
@@ -259,10 +316,6 @@ ws = new WebSocket("ws://localhost:8000/api/notifications/ws?token=<your-jwt-tok
 3. Commit your changes
 4. Push to the branch
 5. Create a Pull Request
-
-## License
-
-MIT License - see LICENSE file for details
 
 ## Database Optimization
 
