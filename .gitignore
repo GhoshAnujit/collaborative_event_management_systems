@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Alembic
+alembic/versions/
+
+# JWT secrets or credentials
+.env
